@@ -1,0 +1,120 @@
+---
+- hosts: all
+  become: yes
+  vars:
+    ansible_distribution: Ubuntu
+    package_ubuntu: 
+      - autoconf
+      - gcc
+      - libc6
+      - make
+      - wget
+      - unzip
+      - apache2
+      - php
+      - libapache2-mod-php7.2
+      - libgd-dev
+      - libmcrypt-dev 
+      - libssl-dev
+      - bc 
+      - gawk 
+      - dc 
+      - build-essential 
+      - snmp 
+      - libnet-snmp-perl 
+      - gettext
+      - python-passlib
+  tasks:
+    - name: fail on unsupported platforms
+      fail: 
+        msg: This playbook is only for developed on ubuntu
+      when: ansible_distribution != 'Ubuntu'
+    - name: install ubuntu packages
+      apt:
+        name: "{{ item }}"
+        state: present
+        update_cache: yes
+      loop: "{{ package_ubuntu }}"
+    - name: download nagios
+      get_url:
+        url: https://github.com/NagiosEnterprises/nagioscore/archive/nagios-4.4.5.tar.gz 
+        dest: /tmp/nagioscore.tar.gz      
+    - name: unzip tar file
+      unarchive:
+        dest: "/tmp/"
+        src: /tmp/nagioscore.tar.gz
+    - name: compile code
+      shell: 
+        cmd: sudo ./configure --with-httpd-conf=/etc/apache2/sites-enabled && sudo make all > makeoutput.log
+      args:
+        chdir: /tmp/nagioscore-nagios-4.4.5
+    - name: creating users and groups 
+      shell:
+        cmd: sudo make install-groups-users && sudo usermod -a -G nagios www-data > usermod.log
+      args:
+        chdir: /tmp/nagioscore-nagios-4.4.5
+    - name: Install Binaries 
+      shell:
+        cmd: sudo make install > makeinstall.log
+      args:
+        chdir: /tmp/nagioscore-nagios-4.4.5
+    - name: Install Service / Daemon 
+      shell:
+        cmd: sudo make install-daemoninit > daemoninit.log
+      args:
+        chdir: /tmp/nagioscore-nagios-4.4.5
+    - name: Install Command mode 
+      shell:
+        cmd: sudo make install-commandmode > commandmode.log
+      args:
+        chdir: /tmp/nagioscore-nagios-4.4.5
+    - name: Install Configuration Files 
+      shell:
+        cmd: sudo make install-config > config.log
+      args:
+        chdir: /tmp/nagioscore-nagios-4.4.5
+    - name: Install Apache Configuration Files 
+      shell:
+        cmd: sudo make install-webconf && sudo a2enmod rewrite && sudo a2enmod cgi > cgi.log
+      args:
+        chdir: /tmp/nagioscore-nagios-4.4.5
+    - name: Create nagiosadmin User Account
+      htpasswd:
+        name: nagiosadmin
+        password: nagiosadmin
+        path: /usr/local/nagios/etc/htpasswd.users
+    - name: start apache
+      service:
+        name: apache2
+        state: started
+        enabled: true
+    - name: start nagios
+      service:
+        name: nagios
+        state: started
+        enabled: true
+    - name: download nagios plugins
+      get_url:
+        dest: "/tmp/"
+        url: https://github.com/nagios-plugins/nagios-plugins/archive/release-2.2.1.tar.gz
+    - name: unzip plugin tar file
+      unarchive:
+        dest: "/tmp/"
+        src: /tmp/nagios-plugins-release-2.2.1.tar.gz 
+    - name: compile & install plugins 
+      shell:
+        cmd: sudo ./tools/setup > setup.log && sudo ./configure > configure.log && sudo make > make.log && sudo make install
+      args:
+        chdir: /tmp/nagios-plugins-release-2.2.1
+    - name: start apache
+      service:
+        name: apache2
+        state: started
+        enabled: true
+    - name: start nagios
+      service:
+        name: nagios
+        state: started
+        enabled: true  
+      
+      
