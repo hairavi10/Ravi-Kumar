@@ -63,11 +63,12 @@
     - name: download nagios
       get_url:
         url: https://github.com/NagiosEnterprises/nagioscore/archive/nagios-4.4.5.tar.gz 
-        dest: /tmp/nagioscore.tar.gz      
+        dest: /tmp/nagioscore.tar.gz    
     - name: unzip tar file
       unarchive:
         dest: "/tmp/"
         src: /tmp/nagioscore.tar.gz
+        remote_src: yes
     - name: compile code on ubuntu
       shell: 
         cmd: sudo ./configure --with-httpd-conf=/etc/apache2/sites-enabled && sudo make all > makeoutput.log
@@ -157,23 +158,9 @@
         name: nagiosadmin
         password: nagiosadmin
         path: /usr/local/nagios/etc/htpasswd.users
-    - name: start apache
-      service:
-        name: apache2
-        state: started
-        enabled: true
-      when: ansible_os_family == "Debian"
-    - name: start httpd
-      service:
-        name: httpd
-        state: started
-        enabled: true
-      when: ansible_os_family == "RedHat"
-    - name: start nagios
-      service:
-        name: nagios
-        state: started
-        enabled: true
+      notify: 
+        - start apache
+        - start httpd
     - name: download nagios plugins
       get_url:
         dest: "/tmp/"
@@ -194,6 +181,11 @@
       args:
         chdir: /tmp/nagios-plugins-release-2.2.1
       when: ansible_os_family == "RedHat"
+      notify: 
+        - start apache
+        - start httpd
+        - start nagios
+  handlers:
     - name: start apache
       service:
         name: apache2
@@ -210,6 +202,6 @@
       service:
         name: nagios
         state: started
-        enabled: true  
+        enabled: true
       
       
